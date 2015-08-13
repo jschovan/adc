@@ -57,35 +57,35 @@ logfile=/var/log/apf/apf.log
 d2=$(date '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 d_first=$(head -n30 ${logfile} | grep '^2' | cut -f1-3 -d" " | head -n1)
 
-### last 10 min
-suffix="last10min"
-logfile_10min=/var/log/apf/apf.log.${suffix}
-resultfile_10min=$(mktemp)
-d1_10min=$(date --date="-10 min" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
+### last 15 min
+suffix="last15min"
+logfile_15min=/tmp/apf.log.${suffix}
+resultfile_15min=$(mktemp)
+d1_15min=$(date --date="-15 min" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 
 ### last 1 hr
 suffix="last1hr"
-logfile_1hr=/var/log/apf/apf.log.${suffix}
+logfile_1hr=/tmp/apf.log.${suffix}
 resultfile_1hr=$(mktemp)
 d1_1hr=$(date --date="-1 hour" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 
 ### last 4 hr
 suffix="last4hr"
-logfile_4hr=/var/log/apf/apf.log.${suffix}
+logfile_4hr=/tmp/apf.log.${suffix}
 resultfile_4hr=$(mktemp)
 d1_4hr=$(date --date="-4 hour" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 
 ### last 12 hr
 suffix="last12hr"
-logfile_12hr=/var/log/apf/apf.log.${suffix}
+logfile_12hr=/tmp/apf.log.${suffix}
 resultfile_12hr=$(mktemp)
 d1_12hr=$(date --date="-12 hour" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 
-### prepare last10min
-if [[ "${d_first}" < "$d1_10min" ]]; then
-	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_10min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' > $logfile_10min 
+### prepare last15min
+if [[ "${d_first}" < "$d1_15min" ]]; then
+	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_15min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' > $logfile_15min 
 else
-	cat ${logfile}* | grep "Preparing to submit" | awk -v d1="$d1_10min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' > $logfile_10min 
+	cat ${logfile}* | grep "Preparing to submit" | awk -v d1="$d1_15min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' > $logfile_15min 
 fi
 
 ### prepare last1hr
@@ -111,13 +111,13 @@ fi
 
 
 ### process logs
-python /root/xlog.py $logfile_10min $resultfile_10min last10min > $resultfile_10min
+python /root/xlog.py $logfile_15min $resultfile_15min last15min > $resultfile_15min
 python /root/xlog.py $logfile_1hr $resultfile_1hr last1hr > $resultfile_1hr
 python /root/xlog.py $logfile_4hr $resultfile_4hr last4hr > $resultfile_4hr
 python /root/xlog.py $logfile_12hr $resultfile_12hr last12hr > $resultfile_12hr
 
 
-for file in $resultfile_10min $resultfile_1hr $resultfile_4hr $resultfile_12hr
+for file in $resultfile_15min $resultfile_1hr $resultfile_4hr $resultfile_12hr
 do
 cat $file >> $tmpfile
 done
@@ -125,12 +125,12 @@ done
 echo "</data></serviceupdate>" >> $tmpfile
 
 
-# if ! curl -s -F file=@$tmpfile xsls.cern.ch >/dev/null ; then
-#   err "Error sending XML to xsls.cern.ch"
-#  exit 1
-# fi
-# 
-# rm -f $tmpfile
+if ! curl -s -F file=@$tmpfile xsls.cern.ch >/dev/null ; then
+  err "Error sending XML to xsls.cern.ch"
+ exit 1
+fi
+
+rm -f $tmpfile $logfile_15min $resultfile_15min $logfile_1hr $resultfile_1hr $logfile_4hr $resultfile_4hr $logfile_12hr $resultfile_12hr 
 
 ### check validity
 # xmllint --noout --schema http://itmon.web.cern.ch/itmon/files/xsls_schema.xsd $tmpfile
