@@ -20,7 +20,7 @@ function age() {
   echo $elapsed
 }
 
-# set -x
+set -x
 
 tmpfile=$(mktemp)
 logfile=/var/log/apf/apf.log
@@ -75,49 +75,65 @@ logfile_4hr=/tmp/apf.log.${suffix}
 resultfile_4hr=$(mktemp)
 d1_4hr=$(date --date="-4 hour" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 
-### last 12 hr
-suffix="last12hr"
-logfile_12hr=/tmp/apf.log.${suffix}
-resultfile_12hr=$(mktemp)
-d1_12hr=$(date --date="-12 hour" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
+## ### last 12 hr
+## suffix="last12hr"
+## logfile_12hr=/tmp/apf.log.${suffix}
+## resultfile_12hr=$(mktemp)
+## d1_12hr=$(date --date="-12 hour" '+%Y-%m-%d %H:%M:%S,%3N (UTC)' -u)
 
 ### prepare last15min
 if [[ "${d_first}" < "$d1_15min" ]]; then
 	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_15min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' > $logfile_15min 
 else
-	cat ${logfile}* | grep "Preparing to submit" | awk -v d1="$d1_15min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' > $logfile_15min 
+	echo -n >$logfile_15min
+	ls ${logfile}-* ${logfile} | tail -n2 | while read ll
+	do
+		cat ${ll} | grep "Preparing to submit" | awk -v d1="$d1_15min" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >> $logfile_15min
+	done 
 fi
 
 ### prepare last1hr
 if [[ "${d_first}" < "$d1_1hr" ]]; then
 	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_1hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_1hr
 else
-	cat ${logfile}* | grep "Preparing to submit" | awk -v d1="$d1_1hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_1hr
+	echo -n >$logfile_1hr
+	ls ${logfile}-* ${logfile} | tail -n2 | while read ll
+	do
+		cat ${ll} | grep "Preparing to submit" | awk -v d1="$d1_1hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >>$logfile_1hr
+	done 
 fi
 
 ### prepare last4hr
 if [[ "${d_first}" < "$d1_4hr" ]]; then
 	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_4hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_4hr
 else
-	cat ${logfile}* | grep "Preparing to submit" | awk -v d1="$d1_4hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_4hr
+	echo -n >$logfile_4hr
+	ls ${logfile}-* ${logfile} | tail -n2 | while read ll
+	do
+		cat ${ll} | grep "Preparing to submit" | awk -v d1="$d1_4hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >>$logfile_4hr
+	done 
 fi
 
-### prepare last12hr
-if [[ "${d_first}" < "$d1_12hr" ]]; then
-	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_12hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_12hr
-else
-	cat ${logfile}* | grep "Preparing to submit" | awk -v d1="$d1_12hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_12hr
-fi
+## ### prepare last12hr
+## if [[ "${d_first}" < "$d1_12hr" ]]; then
+## 	cat ${logfile} | grep "Preparing to submit" | awk -v d1="$d1_12hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >$logfile_12hr
+## else
+## 	echo -n >$logfile_12hr
+## 	ls ${logfile}-* ${logfile} | tail -n2 | while read ll
+## 	do
+## 		cat ${ll} | grep "Preparing to submit" | awk -v d1="$d1_12hr" -v d2="$d2" '$0 > d1 && $0 < d2 || $0 ~ d2' >>$logfile_12hr
+## 	done 
+## fi
 
 
 ### process logs
 python /root/xlog.py $logfile_15min $resultfile_15min last15min > $resultfile_15min
 python /root/xlog.py $logfile_1hr $resultfile_1hr last1hr > $resultfile_1hr
 python /root/xlog.py $logfile_4hr $resultfile_4hr last4hr > $resultfile_4hr
-python /root/xlog.py $logfile_12hr $resultfile_12hr last12hr > $resultfile_12hr
+## python /root/xlog.py $logfile_12hr $resultfile_12hr last12hr > $resultfile_12hr
 
 
-for file in $resultfile_15min $resultfile_1hr $resultfile_4hr $resultfile_12hr
+for file in $resultfile_15min $resultfile_1hr $resultfile_4hr # $resultfile_12hr
 do
 cat $file >> $tmpfile
 done
@@ -130,7 +146,7 @@ if ! curl -s -F file=@$tmpfile xsls.cern.ch >/dev/null ; then
  exit 1
 fi
 
-rm -f $tmpfile $logfile_15min $resultfile_15min $logfile_1hr $resultfile_1hr $logfile_4hr $resultfile_4hr $logfile_12hr $resultfile_12hr 
+rm -f $tmpfile $logfile_15min $resultfile_15min $logfile_1hr $resultfile_1hr $logfile_4hr $resultfile_4hr # $logfile_12hr $resultfile_12hr 
 
 ### check validity
 # xmllint --noout --schema http://itmon.web.cern.ch/itmon/files/xsls_schema.xsd $tmpfile
